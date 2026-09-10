@@ -14,6 +14,10 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+
+# companion-core is a workspace package. Its package metadata points to dist/,
+# so build it before the root TypeScript compiler resolves the workspace import.
+RUN npm run build --workspace=@phuetz/companion-core
 RUN npm run build
 RUN npm prune --omit=dev
 
@@ -29,6 +33,11 @@ RUN apt-get update \
 COPY --from=builder --chown=codebuddy:codebuddy /app/dist ./dist
 COPY --from=builder --chown=codebuddy:codebuddy /app/node_modules ./node_modules
 COPY --from=builder --chown=codebuddy:codebuddy /app/package.json ./package.json
+
+# Keep the built workspace package available for the optional dynamic import.
+COPY --from=builder --chown=codebuddy:codebuddy /app/packages/companion-core/package.json ./packages/companion-core/package.json
+COPY --from=builder --chown=codebuddy:codebuddy /app/packages/companion-core/dist ./packages/companion-core/dist
+
 COPY docker/railway-entrypoint.sh /usr/local/bin/railway-entrypoint.sh
 RUN chmod 0755 /usr/local/bin/railway-entrypoint.sh
 
