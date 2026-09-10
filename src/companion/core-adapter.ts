@@ -18,6 +18,7 @@ import {
   type RelationshipState,
 } from './relationship-state.js';
 import { applyLimitsContract, LIMITS_REPAIRS, type LimitsVerdict } from './reply-augment.js';
+import type { LimitsReason } from './reply-augment.js';
 import { logger } from '../utils/logger.js';
 
 // Keep this dependency genuinely optional at compile time. A variable module
@@ -33,8 +34,12 @@ type CoreModule = {
   evolveRelationship(state: unknown, signal: unknown): unknown;
   applyLimitsContract(
     output: string,
-    opts: { repairs: readonly string[]; heard?: string },
-  ): { text: string; reason?: string };
+    opts?: {
+      repairs?: Partial<Record<LimitsReason, string>>;
+      heard?: string;
+      locale?: 'fr' | 'en';
+    },
+  ): { text: string; reason?: LimitsReason; repaired: boolean };
 };
 
 let cached: CoreModule | null = null;
@@ -111,10 +116,13 @@ export async function applyLimitsContractViaCore(
   const env = opts.env ?? process.env;
   const core = await loadCompanionCore(env);
   if (!core) return applyLimitsContract(output, opts);
-  if (!isCopinePersona(env)) return { text: output };
+  if (!isCopinePersona(env)) return { text: output, repaired: false };
+
+  // The local historical path owns the exact repair wording. The core owns
+  // detection and returns the same LimitsReason/LimitsVerdict contract.
   const verdict = core.applyLimitsContract(output, {
     repairs: LIMITS_REPAIRS,
     ...(opts.heard ? { heard: opts.heard } : {}),
   });
-  return verdict.reason ? { text: verdict.text, reason: verdict.reason } : { text: verdict.text };
+  return verdict;
 }
