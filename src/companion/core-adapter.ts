@@ -17,7 +17,6 @@
  * @module companion/core-adapter
  */
 
-import type * as CompanionCore from '@phuetz/companion-core';
 import { isCopinePersona, resolveCompanionPersona } from './personas/index.js';
 import type { CompanionPersonaProfile } from './personas/types.js';
 import {
@@ -28,7 +27,21 @@ import {
 import { applyLimitsContract, LIMITS_REPAIRS, type LimitsVerdict } from './reply-augment.js';
 import { logger } from '../utils/logger.js';
 
-type CoreModule = typeof CompanionCore;
+// Keep the companion-core dependency genuinely optional at compile time.
+// The runtime import below is intentionally dynamic; using `import type` here
+// would still make TypeScript resolve the optional workspace package during
+// the main build, which breaks production Docker builds when its dist/ is not
+// present yet.
+type CoreModule = {
+  safeLoadPersonaProfile(profile: unknown):
+    | { ok: true; value: unknown }
+    | { ok: false; issues: string[] };
+  evolveRelationship(state: unknown, signal: unknown): unknown;
+  applyLimitsContract(
+    output: string,
+    opts: { repairs: readonly string[]; heard?: string },
+  ): { text: string; reason?: string };
+};
 
 let cached: CoreModule | null = null;
 let loadFailed = false;
@@ -50,7 +63,7 @@ export async function loadCompanionCore(
   if (cached) return cached;
   if (loadFailed) return null;
   try {
-    cached = (await import('@phuetz/companion-core')) as CoreModule;
+    cached = (await import('@phuetz/companion-core')) as unknown as CoreModule;
     return cached;
   } catch (error) {
     loadFailed = true;
