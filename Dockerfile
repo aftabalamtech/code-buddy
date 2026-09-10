@@ -22,13 +22,15 @@ FROM node:20-bookworm-slim AS production
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ripgrep curl ca-certificates \
+    && apt-get install -y --no-install-recommends git ripgrep curl ca-certificates gosu \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --shell /bin/bash --uid 1001 codebuddy
 
 COPY --from=builder --chown=codebuddy:codebuddy /app/dist ./dist
 COPY --from=builder --chown=codebuddy:codebuddy /app/node_modules ./node_modules
 COPY --from=builder --chown=codebuddy:codebuddy /app/package.json ./package.json
+COPY docker/railway-entrypoint.sh /usr/local/bin/railway-entrypoint.sh
+RUN chmod 0755 /usr/local/bin/railway-entrypoint.sh
 
 # Railway should mount its single persistent volume at /workspace.
 # HOME is deliberately moved into that volume so projects, sessions,
@@ -40,13 +42,15 @@ ENV NODE_ENV=production \
     HOME=/workspace \
     CODEBUDDY_HOME=/workspace/.codebuddy
 
-USER codebuddy
 WORKDIR /workspace
 
 EXPOSE 3000
 
-# Local Docker fallback. Railway overrides this with railway.json and uses
-# Railway's injected PORT value.
+# The entrypoint fixes volume ownership and then drops to the unprivileged
+# application user. Railway's startCommand supplies the actual PORT.
+ENTRYPOINT ["/usr/local/bin/railway-entrypoint.sh"]
+
+# Local Docker fallback.
 CMD ["node", "/app/dist/index.js", "server", "--port", "3000", "--host", "0.0.0.0"]
 
 # Docker-level health check; Railway separately checks /api/health on PORT.
