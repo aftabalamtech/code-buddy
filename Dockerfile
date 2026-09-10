@@ -53,6 +53,5 @@ ENTRYPOINT ["/usr/local/bin/railway-entrypoint.sh"]
 # Local Docker fallback.
 CMD ["node", "/app/dist/index.js", "server", "--port", "3000", "--host", "0.0.0.0"]
 
-# Docker-level health check; Railway separately checks /api/health on PORT.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD-SHELL curl -fsS "http://127.0.0.1:${PORT:-3000}/api/health" || exit 1
+# Railway performs the healthcheck itself via railway.json.
+# No Docker HEALTHCHECK is defined because Railway injects a dynamic PORT.
