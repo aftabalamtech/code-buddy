@@ -18,8 +18,11 @@ import {
   type RelationshipState,
 } from './relationship-state.js';
 import { applyLimitsContract, LIMITS_REPAIRS, type LimitsVerdict } from './reply-augment.js';
-import type { LimitsReason } from './reply-augment.js';
 import { logger } from '../utils/logger.js';
+
+// Reuse the historical adapter's reason union without importing the optional
+// companion package's types at compile time.
+type LimitsReason = NonNullable<LimitsVerdict['reason']>;
 
 // Keep this dependency genuinely optional at compile time. A variable module
 // specifier prevents TypeScript from trying to resolve the optional workspace
@@ -116,7 +119,7 @@ export async function applyLimitsContractViaCore(
   const env = opts.env ?? process.env;
   const core = await loadCompanionCore(env);
   if (!core) return applyLimitsContract(output, opts);
-  if (!isCopinePersona(env)) return { text: output, repaired: false };
+  if (!isCopinePersona(env)) return { text: output };
 
   // The local historical path owns the exact repair wording. The core owns
   // detection and returns the same LimitsReason/LimitsVerdict contract.
